@@ -8,6 +8,7 @@ from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.core.window import Window
 from kivy.lang import Builder
 from node import Node
+import numpy as np
 kivy.require('2.0.0')
 
 
@@ -39,8 +40,8 @@ class AppGraph(GridLayout):
         self.add_widget(Label(text="#"))
         self.add_widget(Label(text="Weight"))
         self.add_widget(Label(text="Directs to nodes"))
-
-        for i in range(1, int(self.inputs_num.text) + 1):
+        self.inputs_num = int(self.inputs_num.text)
+        for i in range(1, self.inputs_num + 1):
             self.add_widget(Label(text=f"{i}"))
 
             weight = TextInput()
@@ -49,19 +50,26 @@ class AppGraph(GridLayout):
             self.add_widget(directions)
             self.node_data[i] = [i, weight, directions]
 
+        self.matrix = np.zeros((self.inputs_num + 1, self.inputs_num + 1))
+        print(self.matrix)
         self.add_widget((Label()))
         self.add_widget((Label()))
         self.gen_button = Button(text="Generate")
         self.add_widget(self.gen_button)
-        self.gen_button.bind(on_press=self.create_app_graph)
+        self.gen_button.bind(on_press=self.fill_matrix)
 
-    def create_app_graph(self, instance):
+    def fill_matrix(self, instance):
         print("Generate app grph")
-        for i in range(1, int(self.inputs_num.text) + 1):
+        for i in range(1, self.inputs_num + 1):
             number = self.node_data[i][0]
             weight = int(self.node_data[i][1].text)
-            directions = self.node_data[i][2].text
-            print(f"{number}: {weight} {directions}")
+            self.matrix[i][i] = weight
+            if self.node_data[i][2].text != '':
+                directions = list(map(int, self.node_data[i][2].text.split(' ')))
+                for node in directions:
+                    self.matrix[i][node] = 1
+            #print(f"{number}: {weight} {directions}")
+            print(self.matrix)
 
 class SystGraph(GridLayout):
     def __init__(self, **kwargs):
