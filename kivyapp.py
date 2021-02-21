@@ -62,14 +62,51 @@ class AppGraph(GridLayout):
         print("Generate app grph")
         for i in range(1, self.inputs_num + 1):
             number = self.node_data[i][0]
-            weight = int(self.node_data[i][1].text)
+            weight = int(self.node_data[i][1].text.strip())
             self.matrix[i][i] = weight
             if self.node_data[i][2].text != '':
-                directions = list(map(int, self.node_data[i][2].text.split(' ')))
+                directions = list(map(int, self.node_data[i][2].text.strip().split(' ')))
                 for node in directions:
-                    self.matrix[i][node] = 1
+                    if 1 <= node <= self.inputs_num and node!=i:
+                        self.matrix[i][node] = 1
             #print(f"{number}: {weight} {directions}")
             print(self.matrix)
+
+        for i in range(1, self.inputs_num + 1):
+            print(f"Node[{i}], Depth - {self.find_depth(i)}")
+
+    def find_depth(self, node, bad_boys=None):
+        if isinstance(node, int):
+            if not bad_boys:
+                bad_boys = []
+                bad_boys.append(node)
+            elif node in bad_boys:
+                print("Warning! Cyclic Graph! ", node)
+                return 0
+            else:
+                bad_boys.append(node)
+                print("Whatcha gonna do when they come for you? ", bad_boys)
+                #for column_elem in range(1, self.inputs_num + 1):
+                #    if self.matrix[column_elem][node] and node!=column_elem:
+                #        bad_boys.append(column_elem)
+
+
+            matched = []
+            bb_temp = tuple(bad_boys)
+            for row_elem in range(1, self.inputs_num + 1):
+                bad_boys = [x for x in bb_temp]
+                if self.matrix[node][row_elem] and node!=row_elem:
+
+                    matched.append(self.find_depth(row_elem, bad_boys) + 1)
+
+            if not matched:
+                return 1
+            else:
+                print("Matched depths: ",matched)
+                return max(matched)
+        else:
+            print("Wrong node number")
+            return False
 
 class SystGraph(GridLayout):
     def __init__(self, **kwargs):
@@ -131,6 +168,7 @@ class DesignerApp(App):
         self.screen_manager.add_widget(screen)
 
         return self.screen_manager
+
 
 if __name__ == '__main__':
     designer_app = DesignerApp()
