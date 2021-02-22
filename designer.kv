@@ -15,3 +15,11 @@ MainMenu:
         Rectangle: #woohoo!!!
             size: self.size
             pos: self.pos
+<NodeLabel>:
+    canvas.before:
+        Color:
+            rgba: 0.5, 0.5, 0.5, 0.5
+        Ellipse:
+            size: min(self.size)*0.4, min(self.size)*0.4
+            pos: (self.x + self.width/2) - min(self.size)*0.4/2, (self.y + self.height/2 - min(self.size)*0.4/2)
+

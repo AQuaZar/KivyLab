@@ -9,8 +9,12 @@ from kivy.core.window import Window
 from kivy.lang import Builder
 from node import Node
 import numpy as np
+import collections
 kivy.require('2.0.0')
 
+
+class NodeLabel(Label):
+    pass
 
 class AppGraph(GridLayout):
     def __init__(self, **kwargs):
@@ -61,7 +65,7 @@ class AppGraph(GridLayout):
     def fill_matrix(self, instance):
         print("Generate app grph")
         for i in range(1, self.inputs_num + 1):
-            number = self.node_data[i][0]
+            #number = self.node_data[i][0]
             weight = int(self.node_data[i][1].text.strip())
             self.matrix[i][i] = weight
             if self.node_data[i][2].text != '':
@@ -70,10 +74,52 @@ class AppGraph(GridLayout):
                     if 1 <= node <= self.inputs_num and node!=i:
                         self.matrix[i][node] = 1
             #print(f"{number}: {weight} {directions}")
-            print(self.matrix)
+        print(self.matrix)
+
+        depths = []
+        for i in range(1, self.inputs_num + 1):
+            depths.append(self.find_depth(i))
+            print(f"Node[{i}], Depth - {depths[i-1]}")
+        max_depth = max(depths)
+
+        drawing_data = {new_list: [] for new_list in range(max_depth)}
+
+        self.clear_widgets()
 
         for i in range(1, self.inputs_num + 1):
-            print(f"Node[{i}], Depth - {self.find_depth(i)}")
+            first = True
+            for j in range(1, self.inputs_num + 1):
+                if i!=j and self.matrix[j][i]:
+                    first = False
+            if first:
+                drawing_data[1].append(i)
+
+        print("Inputs: ", drawing_data[1])
+        self.cols = max(drawing_data[1])
+
+        c = collections.Counter(depths)
+        print("C",c.most_common(1))
+        print(c)
+
+        # for i in drawing_data[1]:
+        #     for j in range(1,self.inputs_num +1):
+        #         if i!=j and self.matrix[i][j]:
+        #             drawing_data[2].append()
+        for i in range(max_depth):
+            row = []
+            for j in range(1, self.inputs_num + 1):
+                if depths[j-1] == max_depth:
+                    row.append(j)
+            print("Row: ", row)
+            for z in range(max(drawing_data[1])):
+                if z < len(row):
+                    self.add_widget(NodeLabel(text=str(row[z])))
+                else:
+                    self.add_widget(Label())
+            max_depth -= 1
+
+
+
 
     def find_depth(self, node, bad_boys=None):
         if isinstance(node, int):
