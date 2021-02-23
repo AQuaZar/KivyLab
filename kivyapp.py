@@ -80,35 +80,21 @@ class AppGraph(GridLayout):
         for i in range(1, self.inputs_num + 1):
             depths.append(self.find_depth(i))
             print(f"Node[{i}], Depth - {depths[i-1]}")
-        max_depth = max(depths)
 
-        drawing_data = {new_list: [] for new_list in range(max_depth)}
+        self.draw_graph(depths)
 
+    def draw_graph(self, depths):
         self.clear_widgets()
-
-        for i in range(1, self.inputs_num + 1):
-            first = True
-            for j in range(1, self.inputs_num + 1):
-                if i!=j and self.matrix[j][i]:
-                    first = False
-            if first:
-                drawing_data[1].append(i)
-
-        print("Inputs: ", drawing_data[1])
-        #self.cols = max(drawing_data[1])
-
+        max_depth = max(depths)
         c = collections.Counter(depths)
         graph_width = c.most_common(1)[0][1]
+
         self.cols = graph_width
         print("C",c.most_common(1)[0][1])
         print(c)
         print('max depth', max_depth)
-        print("max drw data", max(drawing_data[1]))
+        #print("max drw data", max(drawing_data[1]))
 
-        # for i in drawing_data[1]:
-        #     for j in range(1,self.inputs_num +1):
-        #         if i!=j and self.matrix[i][j]:
-        #             drawing_data[2].append()
         for i in range(max_depth):
             row = []
             y = 0
@@ -118,7 +104,7 @@ class AppGraph(GridLayout):
             print("Row: ", row)
             half_empty = (graph_width - len(row)) / 2
             for z in range(graph_width):
-                print("z, he, gw-he", z, half_empty,graph_width-half_empty)
+                #print("z, he, gw-he", z, half_empty,graph_width-half_empty)
                 if half_empty <= z < graph_width-half_empty:
                     self.add_widget(NodeLabel(text=str(row[y])))
                     y += 1
@@ -126,9 +112,6 @@ class AppGraph(GridLayout):
                     self.add_widget(Label())
 
             max_depth -= 1
-
-
-
 
     def find_depth(self, node, bad_boys=None):
         if isinstance(node, int):
@@ -140,12 +123,7 @@ class AppGraph(GridLayout):
                 return 0
             else:
                 bad_boys.append(node)
-                print("Whatcha gonna do when they come for you? ", bad_boys)
-                #for column_elem in range(1, self.inputs_num + 1):
-                #    if self.matrix[column_elem][node] and node!=column_elem:
-                #        bad_boys.append(column_elem)
-
-
+                #print("Whatcha gonna do when they come for you? ", bad_boys)
             matched = []
             bb_temp = tuple(bad_boys)
             for row_elem in range(1, self.inputs_num + 1):
@@ -153,7 +131,6 @@ class AppGraph(GridLayout):
                 if self.matrix[node][row_elem] and node!=row_elem:
 
                     matched.append(self.find_depth(row_elem, bad_boys) + 1)
-
             if not matched:
                 return 1
             else:
