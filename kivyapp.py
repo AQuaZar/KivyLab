@@ -95,11 +95,15 @@ class AppGraph(GridLayout):
                 drawing_data[1].append(i)
 
         print("Inputs: ", drawing_data[1])
-        self.cols = max(drawing_data[1])
+        #self.cols = max(drawing_data[1])
 
         c = collections.Counter(depths)
-        print("C",c.most_common(1))
+        graph_width = c.most_common(1)[0][1]
+        self.cols = graph_width
+        print("C",c.most_common(1)[0][1])
         print(c)
+        print('max depth', max_depth)
+        print("max drw data", max(drawing_data[1]))
 
         # for i in drawing_data[1]:
         #     for j in range(1,self.inputs_num +1):
@@ -107,15 +111,20 @@ class AppGraph(GridLayout):
         #             drawing_data[2].append()
         for i in range(max_depth):
             row = []
+            y = 0
             for j in range(1, self.inputs_num + 1):
                 if depths[j-1] == max_depth:
                     row.append(j)
             print("Row: ", row)
-            for z in range(max(drawing_data[1])):
-                if z < len(row):
-                    self.add_widget(NodeLabel(text=str(row[z])))
+            half_empty = (graph_width - len(row)) / 2
+            for z in range(graph_width):
+                print("z, he, gw-he", z, half_empty,graph_width-half_empty)
+                if half_empty <= z < graph_width-half_empty:
+                    self.add_widget(NodeLabel(text=str(row[y])))
+                    y += 1
                 else:
                     self.add_widget(Label())
+
             max_depth -= 1
 
 
