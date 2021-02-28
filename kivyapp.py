@@ -6,6 +6,9 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.core.window import Window
+from kivy.graphics import Line, Ellipse, Color, Rectangle
+from kivy.clock import Clock
+import time
 from kivy.lang import Builder
 from node import Node
 import numpy as np
@@ -14,31 +17,49 @@ kivy.require('2.0.0')
 
 
 class NodeLabel(Label):
-    pass
+    def __init__(self, number, **kwargs):
+        super().__init__(**kwargs)
+        self.index = number
+
+
+    def get_pos(self):
+        Clock.schedule_once(lambda *args: self.parent.draw_lines())
+        print(self.center_x, self.center_y)
 
 class AppGraph(GridLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.cols = 2
         self.spacing = (20,20)
-        self.padding = [50, 10, 50, 10]
+        self.padding = [10, 100, 10, 100]
         self.node_data = dict()
+        self.is_drawn = False
 
         self.add_widget(Label(text="Application Graph Editor", halign='center', font_size='30'))
-        self.blank = Label(size_hint_y=0.5)
-        self.add_widget(self.blank)
-
+        self.blank = Label()
+        #self.add_widget(self.blank)
+        self.menu_button = Button(text="Return to Menu")
+        self.add_widget(self.menu_button)
         self.inputs_num = TextInput(text="Amount of Nodes")
         self.add_widget(self.inputs_num)
         self.submit_amount = Button(text="Submit")
         self.add_widget(self.submit_amount)
-        self.add_widget(Label(size_hint_y=0.1))
+
         self.add_widget(Label(size_hint_y=0.1))
         self.submit_amount.bind(on_press=self.add_node_editing)
+        self.menu_button.bind(on_press=self.show_main_menu_screen)
+        Window.bind(on_resize=self.draw_lines)
+
+    def show_main_menu_screen(self, instance):
+        designer_app.screen_manager.current = "MainMenu"
 
     def add_node_editing(self, instance):
         self.cols = 3
+        self.spacing = (10, 10)
+        self.padding = [10, 10, 10, 10]
+        self.add_widget((Label()))
         self.remove_widget(self.blank)
+        self.remove_widget(self.menu_button)
         self.remove_widget(self.inputs_num)
         self.remove_widget(self.submit_amount)
         self.add_widget(Label(text="#"))
@@ -57,7 +78,7 @@ class AppGraph(GridLayout):
         self.matrix = np.zeros((self.inputs_num + 1, self.inputs_num + 1))
         print(self.matrix)
         self.add_widget((Label()))
-        self.add_widget((Label()))
+        self.add_widget(self.menu_button)
         self.gen_button = Button(text="Generate")
         self.add_widget(self.gen_button)
         self.gen_button.bind(on_press=self.fill_matrix)
@@ -106,12 +127,45 @@ class AppGraph(GridLayout):
             for z in range(graph_width):
                 #print("z, he, gw-he", z, half_empty,graph_width-half_empty)
                 if half_empty <= z < graph_width-half_empty:
-                    self.add_widget(NodeLabel(text=str(row[y])))
+                    self.add_widget(NodeLabel(row[y], text=str(row[y])))
                     y += 1
                 else:
                     self.add_widget(Label())
-
             max_depth -= 1
+        self.is_drawn = True
+        Clock.schedule_once(lambda *args: list(filter(lambda x: isinstance(x, NodeLabel),self.children))[0].get_pos())
+
+    def draw_lines(self, *args):
+        if self.is_drawn:
+            self.canvas.clear()
+            for node_1 in self.children:
+                if isinstance(node_1, NodeLabel):
+                    #with self.canvas:
+                    #    Label(text=str(node_1.index), x=node_1.center_x, y=node_1.center_y)
+                    for node_2 in self.children:
+                        if isinstance(node_2, NodeLabel):
+                            with self.canvas:
+                                Label(text=str(node_2.index), x=node_2.center_x, y=node_2.center_y)
+                            if node_1.index!=node_2.index \
+                                and self.matrix[node_1.index, node_2.index]:
+                                # print([node_1.center_x,
+                                #                  node_1.center_y,
+                                #                  node_2.center_x,
+                                #                  node_2.center_y])
+                                with self.canvas:
+                                    Color(1, 0.9, 0.2, 0.5)
+                                    Line(points=[node_1.center_x,
+                                                 node_1.center_y,
+                                                 node_2.center_x,
+                                                 node_2.center_y],
+                                         width=3)
+                                    Label(text=str(node_2.index), x=node_2.center_x, y=node_2.center_y)
+                                    Label(text=str(node_1.index), x=node_1.center_x, y=node_1.center_y)
+                                    Color(0.5, 0.5, 0.5, 0.9)
+                                    Ellipse(pos=((node_1.center_x-min(self.size)*0.1/2), (node_1.center_y-min(self.size)*0.1/2)), size=(min(self.size)*0.1, min(self.size)*0.1))
+                                    Ellipse(pos=((node_2.center_x-min(self.size)*0.1/2), (node_2.center_y-min(self.size)*0.1/2)), size=(min(self.size)*0.1, min(self.size)*0.1))
+
+
 
     def find_depth(self, node, bad_boys=None):
         if isinstance(node, int):
