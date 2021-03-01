@@ -5,6 +5,7 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.uix.popup import Popup
 from kivy.core.window import Window
 from kivy.graphics import Line, Ellipse, Color, Rectangle
 from kivy.clock import Clock
@@ -34,21 +35,36 @@ class AppGraph(GridLayout):
         self.padding = [10, 100, 10, 100]
         self.node_data = dict()
         self.is_drawn = False
+        self.check_popup = Popup(title='Warning! Cycle detected!',
+                      content=Label(text='Please enter correct data, graph has to be acyclic.'),
+                      size_hint=(None, None), size=(400, 200))
 
-        self.add_widget(Label(text="Application Graph Editor", halign='center', font_size='30'))
+        self.check_popup.bind(on_dismiss=self.draw_app_graph_menu)
+        self.screen_title = Label(text="Application Graph Editor", halign='center', font_size='30')
         self.blank = Label()
         #self.add_widget(self.blank)
         self.menu_button = Button(text="Return to Menu")
-        self.add_widget(self.menu_button)
-        self.inputs_num = TextInput(text="Amount of Nodes")
-        self.add_widget(self.inputs_num)
+        self.inputs_num_widget = TextInput(text="Amount of Nodes")
+        self.inputs_num = 0
         self.submit_amount = Button(text="Submit")
-        self.add_widget(self.submit_amount)
-
-        self.add_widget(Label(size_hint_y=0.1))
+        self.matrix_button = Button(text="Show matrix")
         self.submit_amount.bind(on_press=self.add_node_editing)
         self.menu_button.bind(on_press=self.show_main_menu_screen)
         Window.bind(on_resize=self.draw_lines)
+        self.draw_app_graph_menu(instance=self)
+
+    def draw_app_graph_menu(self, instance):
+        self.clear_widgets()
+        self.canvas.clear()
+        self.cols = 2
+        self.spacing = (20, 20)
+        self.padding = [10, 100, 10, 100]
+        self.add_widget(self.screen_title)
+        self.add_widget(self.menu_button)
+        self.add_widget(self.inputs_num_widget)
+        self.add_widget(self.submit_amount)
+        self.add_widget(Label(size_hint_y=0.1))
+
 
     def show_main_menu_screen(self, instance):
         designer_app.screen_manager.current = "MainMenu"
@@ -60,12 +76,12 @@ class AppGraph(GridLayout):
         self.add_widget((Label()))
         self.remove_widget(self.blank)
         self.remove_widget(self.menu_button)
-        self.remove_widget(self.inputs_num)
+        self.remove_widget(self.inputs_num_widget)
         self.remove_widget(self.submit_amount)
         self.add_widget(Label(text="#"))
         self.add_widget(Label(text="Weight"))
         self.add_widget(Label(text="Directs to nodes"))
-        self.inputs_num = int(self.inputs_num.text)
+        self.inputs_num = int(self.inputs_num_widget.text)
         for i in range(1, self.inputs_num + 1):
             self.add_widget(Label(text=f"{i}"))
 
@@ -90,16 +106,29 @@ class AppGraph(GridLayout):
             weight = int(self.node_data[i][1].text.strip())
             self.matrix[i][i] = weight
             if self.node_data[i][2].text != '':
-                directions = list(map(int, self.node_data[i][2].text.strip().split(' ')))
-                for node in directions:
-                    if 1 <= node <= self.inputs_num and node!=i:
-                        self.matrix[i][node] = 1
+                directions = self.node_data[i][2].text.strip().split(' ')
+                for direction in directions:
+                    direction = list(map(int,direction.split('-')))
+                    if len(direction) == 2:
+                        node, direction_weight = direction
+                    elif len(direction) == 1:
+                        node = direction[0]
+                        direction_weight = 1
+                    if 1 <= node <= self.inputs_num and node != i:
+                        self.matrix[i][node] = direction_weight
+                        if isinstance(self, SystGraph):
+                            self.matrix[node][i] = direction_weight
+
             #print(f"{number}: {weight} {directions}")
         print(self.matrix)
+        self.matrix_popup = Popup(title='Matrix',
+                                 content=Label(text=str(self.matrix)),
+                                 size_hint=(None, None), size=(400, 400))
+        self.matrix_button.bind(on_press=self.matrix_popup.open)
 
         depths = []
         for i in range(1, self.inputs_num + 1):
-            depths.append(self.find_depth(i))
+            depths.append(self.find_depth(i, is_first=True))
             print(f"Node[{i}], Depth - {depths[i-1]}")
 
         self.draw_graph(depths)
@@ -111,7 +140,8 @@ class AppGraph(GridLayout):
         graph_width = c.most_common(1)[0][1]
 
         self.cols = graph_width
-        print("C",c.most_common(1)[0][1])
+        print("C1",c.most_common(1)[0][1])
+        print("C0", c.most_common(1)[0][0])
         print(c)
         print('max depth', max_depth)
         #print("max drw data", max(drawing_data[1]))
@@ -132,7 +162,9 @@ class AppGraph(GridLayout):
                 else:
                     self.add_widget(Label())
             max_depth -= 1
+
         self.is_drawn = True
+        self.add_widget(self.matrix_button)
         Clock.schedule_once(lambda *args: list(filter(lambda x: isinstance(x, NodeLabel),self.children))[0].get_pos())
 
     def draw_lines(self, *args):
@@ -154,53 +186,124 @@ class AppGraph(GridLayout):
                                 #                  node_2.center_y])
                                 with self.canvas:
                                     Color(1, 0.9, 0.2, 0.5)
-                                    Line(points=[node_1.center_x,
-                                                 node_1.center_y,
-                                                 node_2.center_x,
-                                                 node_2.center_y],
-                                         width=3)
+                                    middle_x, middle_y = find_line_fraction_coords(node_1.center_x, node_1.center_y,
+                                                                                   node_2.center_x, node_2.center_y,
+                                                                                   1)
+                                    tail_x, tail_y = find_line_fraction_coords(node_1.center_x, node_1.center_y,
+                                                                                   node_2.center_x, node_2.center_y,
+                                                                                   2)
+                                    half_tail_x, half_tail_y = find_line_fraction_coords(node_1.center_x, node_1.center_y,
+                                                                               node_2.center_x, node_2.center_y,
+                                                                               3)
+                                    if node_1.center_x == node_2.center_x:
+                                        Line(bezier=(node_1.center_x,
+                                                     node_1.center_y,
+                                                     middle_x + 100,
+                                                     middle_y,
+                                                     node_2.center_x,
+                                                     node_2.center_y),
+                                             width=3)
+                                        if not isinstance(self, SystGraph):
+                                            Color(1, 0.1, 0.1, 0.9)
+                                            Line(bezier=(tail_x + 40,
+                                                         tail_y,
+                                                         half_tail_x + 30,
+                                                         half_tail_y,
+                                                         node_2.center_x,
+                                                         node_2.center_y),
+                                                 width=6)
+                                    elif node_1.center_y == node_2.center_y:
+                                        Line(bezier=(node_1.center_x,
+                                                     node_1.center_y,
+                                                     middle_x,
+                                                     middle_y + 100,
+                                                     node_2.center_x,
+                                                     node_2.center_y),
+                                             width=3)
+                                        if not isinstance(self, SystGraph):
+                                            Color(1, 0.1, 0.1, 0.9)
+                                            Line(bezier=(tail_x,
+                                                         tail_y + 40,
+                                                         half_tail_x,
+                                                         half_tail_y + 30,
+                                                         node_2.center_x,
+                                                         node_2.center_y),
+                                                 width=3)
+                                    else:
+                                        Line(points=[node_1.center_x,
+                                                     node_1.center_y,
+                                                     node_2.center_x,
+                                                     node_2.center_y],
+                                             width=3)
+                                        if not isinstance(self, SystGraph):
+                                            Color(1, 0.1, 0.1, 0.9)
+                                            Line(points=[half_tail_x,
+                                                         half_tail_y,
+                                                         node_2.center_x,
+                                                         node_2.center_y],
+                                                 width=6)
                                     Label(text=str(node_2.index), x=node_2.center_x, y=node_2.center_y)
                                     Label(text=str(node_1.index), x=node_1.center_x, y=node_1.center_y)
                                     Color(0.5, 0.5, 0.5, 0.9)
-                                    Ellipse(pos=((node_1.center_x-min(self.size)*0.1/2), (node_1.center_y-min(self.size)*0.1/2)), size=(min(self.size)*0.1, min(self.size)*0.1))
-                                    Ellipse(pos=((node_2.center_x-min(self.size)*0.1/2), (node_2.center_y-min(self.size)*0.1/2)), size=(min(self.size)*0.1, min(self.size)*0.1))
+                                    Ellipse(pos=((node_1.center_x-min(self.size)*0.1/2),
+                                                 (node_1.center_y-min(self.size)*0.1/2)),
+                                            size=(min(self.size)*0.1, min(self.size)*0.1))
+                                    Ellipse(pos=((node_2.center_x-min(self.size)*0.1/2),
+                                                 (node_2.center_y-min(self.size)*0.1/2)),
+                                            size=(min(self.size)*0.1, min(self.size)*0.1))
+                                    Rectangle(pos=(self.matrix_button.x,self.matrix_button.y), size=(40,40), text="Sample")
 
 
 
-    def find_depth(self, node, bad_boys=None):
+    def find_depth(self, node, bad_boys=None, is_first=False):
         if isinstance(node, int):
             if not bad_boys:
                 bad_boys = []
                 bad_boys.append(node)
             elif node in bad_boys:
-                print("Warning! Cyclic Graph! ", node)
+                if not isinstance(self, SystGraph):
+                    self.check_popup.open()
+                    print("Warning! Cyclic Graph! ", node)
                 return 0
             else:
                 bad_boys.append(node)
                 #print("Whatcha gonna do when they come for you? ", bad_boys)
             matched = []
-            bb_temp = tuple(bad_boys)
+            if not isinstance(self, SystGraph):
+                bb_temp = tuple(bad_boys)
+            #good_boys = bad_boys
             for row_elem in range(1, self.inputs_num + 1):
-                bad_boys = [x for x in bb_temp]
+                if not isinstance(self, SystGraph):
+                    bad_boys = [x for x in bb_temp]
                 if self.matrix[node][row_elem] and node!=row_elem:
 
                     matched.append(self.find_depth(row_elem, bad_boys) + 1)
             if not matched:
                 return 1
             else:
+                print("BB", bad_boys)
+                if is_first and len(bad_boys) < self.inputs_num and isinstance(self, SystGraph):
+                    self.check_popup.open()
                 print("Matched depths: ",matched)
                 return max(matched)
         else:
             print("Wrong node number")
             return False
 
-class SystGraph(GridLayout):
+class SystGraph(AppGraph):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.cols = 1
-        self.spacing = (0,20)
-        self.lab = Label(text="TEST Syst GRAPH")
-        self.add_widget(self.lab)
+        self.screen_title.text = "System Graph Editor"
+        self.check_popup = Popup(title='Warning! Graph must be fully connected!',
+                                 content=Label(text='Please enter correct data, each node must have path to another.'),
+                                 size_hint=(None, None), size=(500, 200))
+        self.check_popup.bind(on_dismiss=self.draw_app_graph_menu)
+        #self.add_widget(self.screen_title)
+
+        # self.cols = 1
+        # self.spacing = (0,20)
+        # self.lab = Label(text="TEST Syst GRAPH")
+        # self.add_widget(self.lab)
 
 
 class MainMenu(GridLayout):
@@ -254,6 +357,16 @@ class DesignerApp(App):
         self.screen_manager.add_widget(screen)
 
         return self.screen_manager
+
+
+def find_line_fraction_coords(x1,y1,x2,y2,n):
+    if n != 0:
+        x = (x1 + x2) / 2
+        y = (y1 + y2) / 2
+        n -= 1
+        return find_line_fraction_coords(x,y,x2,y2,n)
+    else:
+        return x1, y1
 
 
 if __name__ == '__main__':
