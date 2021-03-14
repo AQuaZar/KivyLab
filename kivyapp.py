@@ -261,7 +261,7 @@ class AppGraph(GridLayout):
                 return 0
             else:
                 bad_boys.append(node)
-            matched = []
+            matched = dict()
             if not isinstance(self, SystGraph):
                 bb_temp = tuple(bad_boys)
             #good_boys = bad_boys
@@ -269,10 +269,10 @@ class AppGraph(GridLayout):
                 if not isinstance(self, SystGraph):
                     bad_boys = [x for x in bb_temp]
                 if self.matrix[node][row_elem] and node!=row_elem:
-
-                    matched.append(self.find_depth(row_elem, bad_boys) + 1)
+                    crit_amount, crit_time = self.find_depth(row_elem, bad_boys)
+                    matched[row_elem] = (crit_amount+1, crit_time + self.matrix[node][node])
             if not matched:
-                return 1
+                return (1, self.matrix[node][node])
             else:
                 print("BB", bad_boys)
                 if is_first and len(bad_boys) < self.inputs_num and isinstance(self, SystGraph):
