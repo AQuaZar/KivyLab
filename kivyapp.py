@@ -172,18 +172,12 @@ class AppGraph(GridLayout):
             self.canvas.clear()
             for node_1 in self.children:
                 if isinstance(node_1, NodeLabel):
-                    #with self.canvas:
-                    #    Label(text=str(node_1.index), x=node_1.center_x, y=node_1.center_y)
                     for node_2 in self.children:
                         if isinstance(node_2, NodeLabel):
                             with self.canvas:
                                 Label(text=str(node_2.index), x=node_2.center_x, y=node_2.center_y)
                             if node_1.index!=node_2.index \
                                 and self.matrix[node_1.index, node_2.index]:
-                                # print([node_1.center_x,
-                                #                  node_1.center_y,
-                                #                  node_2.center_x,
-                                #                  node_2.center_y])
                                 with self.canvas:
                                     Color(1, 0.9, 0.2, 0.5)
                                     middle_x, middle_y = find_line_fraction_coords(node_1.center_x, node_1.center_y,
@@ -267,7 +261,6 @@ class AppGraph(GridLayout):
                 return 0
             else:
                 bad_boys.append(node)
-                #print("Whatcha gonna do when they come for you? ", bad_boys)
             matched = []
             if not isinstance(self, SystGraph):
                 bb_temp = tuple(bad_boys)
@@ -298,12 +291,6 @@ class SystGraph(AppGraph):
                                  content=Label(text='Please enter correct data, each node must have path to another.'),
                                  size_hint=(None, None), size=(500, 200))
         self.check_popup.bind(on_dismiss=self.draw_app_graph_menu)
-        #self.add_widget(self.screen_title)
-
-        # self.cols = 1
-        # self.spacing = (0,20)
-        # self.lab = Label(text="TEST Syst GRAPH")
-        # self.add_widget(self.lab)
 
 
 class MainMenu(GridLayout):
