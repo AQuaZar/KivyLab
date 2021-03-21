@@ -33,6 +33,8 @@ class AppGraph(GridLayout):
         self.cols = 2
         self.spacing = (20,20)
         self.padding = [10, 100, 10, 100]
+        self.queue_3 = []
+        self.queue_7 = []
         self.node_data = dict()
         self.is_drawn = False
         self.check_popup = Popup(title='Warning! Cycle detected!',
@@ -121,17 +123,43 @@ class AppGraph(GridLayout):
 
             #print(f"{number}: {weight} {directions}")
         print(self.matrix)
-        self.matrix_popup = Popup(title='Matrix',
-                                 content=Label(text=str(self.matrix)),
+
+        depths_amount = []
+        max_upper_amount = 0
+
+        upper_amount_dict = dict()
+        crit_time_dict = dict()
+        for i in range(1, self.inputs_num + 1):
+            if not isinstance(self, SystGraph):
+                upper_crit_amount, upper_crit_time = self.find_upper_depth(i, is_first=True)
+                if upper_crit_amount > max_upper_amount:
+                    max_upper_amount = upper_crit_amount
+                print(f"Node[{i}], Upper Depth - {upper_crit_amount}, Upper Time - {upper_crit_time}")
+                upper_amount_dict[i] = (upper_crit_amount, self.get_node_connectivity(i))
+                print(f"Node[{i}], Connectivity {self.get_node_connectivity(i)}")
+            crit_amount, crit_time = self.find_depth(i, is_first=True)
+            crit_time_dict[i] = crit_time
+            print(f"Node[{i}], Depth - {crit_amount}, Time - {crit_time}")
+            #depths_time.append(crit_time)
+            depths_amount.append(crit_amount)
+
+        if not isinstance(self, SystGraph):
+            temp_sort = sorted(upper_amount_dict.items(), key=lambda item: item[1][0])
+            for i in range(max_upper_amount + 1):
+                same_amount = [x for x in temp_sort if x[1][0]==i]
+                self.queue_7.append(sorted(same_amount, key=lambda item: item[1][1], reverse=True))
+            print("tmp", temp_sort)
+
+        self.queue_3 = sorted(crit_time_dict.items(), key=lambda item: item[1], reverse=True)
+        print("Queue 3", self.queue_3)
+        print("Queue 7", self.queue_7)
+
+        self.matrix_popup = Popup(title='Matrix and Queues',
+                                 content=Label(text=str(self.matrix)+f'\nQueue 3 {str(self.queue_3)}\nQueue 7 {self.queue_7}'),
                                  size_hint=(None, None), size=(400, 400))
         self.matrix_button.bind(on_press=self.matrix_popup.open)
 
-        depths = []
-        for i in range(1, self.inputs_num + 1):
-            depths.append(self.find_depth(i, is_first=True))
-            print(f"Node[{i}], Depth - {depths[i-1]}")
-
-        self.draw_graph(depths)
+        self.draw_graph(depths_amount)
 
     def draw_graph(self, depths):
         self.clear_widgets()
@@ -258,10 +286,11 @@ class AppGraph(GridLayout):
                 if not isinstance(self, SystGraph):
                     self.check_popup.open()
                     print("Warning! Cyclic Graph! ", node)
-                return 0
+                return 0, 0
             else:
                 bad_boys.append(node)
-            matched = dict()
+            matched_time = []
+            matched_amount = []
             if not isinstance(self, SystGraph):
                 bb_temp = tuple(bad_boys)
             #good_boys = bad_boys
@@ -270,18 +299,53 @@ class AppGraph(GridLayout):
                     bad_boys = [x for x in bb_temp]
                 if self.matrix[node][row_elem] and node!=row_elem:
                     crit_amount, crit_time = self.find_depth(row_elem, bad_boys)
-                    matched[row_elem] = (crit_amount+1, crit_time + self.matrix[node][node])
-            if not matched:
+                    matched_amount.append(crit_amount + 1)
+                    matched_time.append(crit_time + self.matrix[node][node])
+            if not (matched_time and matched_amount):
                 return (1, self.matrix[node][node])
             else:
                 print("BB", bad_boys)
                 if is_first and len(bad_boys) < self.inputs_num and isinstance(self, SystGraph):
                     self.check_popup.open()
-                print("Matched depths: ",matched)
-                return max(matched)
+                #print("Matched depths: ",matched)
+                return max(matched_amount), max(matched_time)
         else:
             print("Wrong node number")
             return False
+
+    def find_upper_depth(self, node, is_first=False):
+        if isinstance(node, int):
+            matched_time = []
+            matched_amount = []
+            # good_boys = bad_boys
+            for row_elem in range(1, self.inputs_num + 1):
+                if self.matrix[row_elem][node] and node != row_elem:
+                    crit_amount, crit_time = self.find_upper_depth(row_elem)
+                    if is_first:
+                        matched_amount.append(crit_amount + 1)
+                        matched_time.append(crit_time)
+                    else:
+                        matched_amount.append(crit_amount + 1)
+                        matched_time.append(crit_time + self.matrix[node][node])
+            if not (matched_time and matched_amount):
+                return (0, self.matrix[node][node])
+            else:
+                # print("Matched depths: ",matched)
+                return max(matched_amount), max(matched_time)
+        else:
+            print("Wrong node number")
+            return False
+
+    def get_node_connectivity(self, node):
+        connectivity = 0
+        for i in range(1,self.inputs_num + 1):
+            if i != node:
+                if self.matrix[node][i]:
+                    connectivity += 1
+                if self.matrix[i][node]:
+                    connectivity += 1
+        return connectivity
+
 
 class SystGraph(AppGraph):
     def __init__(self, **kwargs):
