@@ -33,6 +33,7 @@ class AppGraph(GridLayout):
         self.cols = 2
         self.spacing = (20,20)
         self.padding = [10, 100, 10, 100]
+        self.is_cycle = False
         self.queue_3 = []
         self.queue_7 = []
         self.node_data = dict()
@@ -130,20 +131,21 @@ class AppGraph(GridLayout):
         upper_amount_dict = dict()
         crit_time_dict = dict()
         for i in range(1, self.inputs_num + 1):
-            if not isinstance(self, SystGraph):
+            crit_amount, crit_time = self.find_depth(i, is_first=True)
+            crit_time_dict[i] = crit_time
+            print(f"Node[{i}], Depth - {crit_amount}, Time - {crit_time}")
+            #depths_time.append(crit_time)
+            depths_amount.append(crit_amount)
+            if not isinstance(self, SystGraph) and not self.is_cycle:
                 upper_crit_amount, upper_crit_time = self.find_upper_depth(i, is_first=True)
                 if upper_crit_amount > max_upper_amount:
                     max_upper_amount = upper_crit_amount
                 print(f"Node[{i}], Upper Depth - {upper_crit_amount}, Upper Time - {upper_crit_time}")
                 upper_amount_dict[i] = (upper_crit_amount, self.get_node_connectivity(i))
                 print(f"Node[{i}], Connectivity {self.get_node_connectivity(i)}")
-            crit_amount, crit_time = self.find_depth(i, is_first=True)
-            crit_time_dict[i] = crit_time
-            print(f"Node[{i}], Depth - {crit_amount}, Time - {crit_time}")
-            #depths_time.append(crit_time)
-            depths_amount.append(crit_amount)
 
-        if not isinstance(self, SystGraph):
+
+        if not isinstance(self, SystGraph) and not self.is_cycle:
             temp_sort = sorted(upper_amount_dict.items(), key=lambda item: item[1][0])
             for i in range(max_upper_amount + 1):
                 same_amount = [x for x in temp_sort if x[1][0]==i]
@@ -156,7 +158,7 @@ class AppGraph(GridLayout):
 
         self.matrix_popup = Popup(title='Matrix and Queues',
                                  content=Label(text=str(self.matrix)+f'\nQueue 3 {str(self.queue_3)}\nQueue 7 {self.queue_7}'),
-                                 size_hint=(None, None), size=(400, 400))
+                                 size_hint=(None, None), size=(self.width-30, 400))
         self.matrix_button.bind(on_press=self.matrix_popup.open)
 
         self.draw_graph(depths_amount)
@@ -198,6 +200,7 @@ class AppGraph(GridLayout):
     def draw_lines(self, *args):
         if self.is_drawn:
             self.canvas.clear()
+            
             for node_1 in self.children:
                 if isinstance(node_1, NodeLabel):
                     for node_2 in self.children:
@@ -285,6 +288,7 @@ class AppGraph(GridLayout):
             elif node in bad_boys:
                 if not isinstance(self, SystGraph):
                     self.check_popup.open()
+                    self.is_cycle = True
                     print("Warning! Cyclic Graph! ", node)
                 return 0, 0
             else:
