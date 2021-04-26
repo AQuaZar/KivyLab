@@ -1,15 +1,21 @@
 # Importing the matplotlb.pyplot
 import matplotlib.pyplot as plt
+import matplotlib._color_data as mcd
+import random
 import os
 
 
-def draw_gantt_plot(data:dict):
+def draw_gantt_plot(data:dict, colors:dict):
 	# Declaring a figure "gnt"
 	fig, gnt = plt.subplots()
 	cell_height = 10
 	# Setting Y-axis limits
 	gnt.set_ylim(0, len(data)*cell_height + cell_height)
 	length = 0
+
+	random_colors = random.sample(list(mcd.XKCD_COLORS.keys()), len(data))
+	color_palette = {i+1: mcd.XKCD_COLORS[random_colors[i]] for i in range(len(data))}
+	print(color_palette)
 	for i in range(1, len(data) + 1):
 		if data[i][-1][1] + data[i][-1][0] > length:
 			length = data[i][-1][1] + data[i][-1][0]
@@ -43,9 +49,14 @@ def draw_gantt_plot(data:dict):
 	# Setting graph attribute
 	gnt.grid(True)
 
+
+
 	for i in range(1, len(data) + 1):
+		tab_color = [color_palette[x] for x in colors[i]]
+		tab_color.insert(0, '#ffffff')
+		print(tab_color)
 		# Declaring a bar in schedule
-		gnt.broken_barh(data[i], (10*i, 10), facecolors=('tab:orange'))
+		gnt.broken_barh(data[i], (10*i, 10), facecolors=tab_color)
 
 	# # Declaring multiple bars in at same level and same width
 	# gnt.broken_barh([(110, 10), (150, 10)], (10, 9),

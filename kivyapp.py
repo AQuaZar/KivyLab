@@ -406,10 +406,12 @@ class Connector(GridLayout):
         proc_amount = self.syst_graph.inputs_num
         proc_task_intervals = dict()
         proc_task_assignments = dict()
+        interval_colors = dict()
         for i in range(1, proc_amount + 1):
             # All processors start on 0,0 position, with no tasks assigned
             proc_task_intervals[i] = [(0, 0)]
             proc_task_assignments[i] = []
+            interval_colors[i] = []
 
         for task in queue:
             vacant_proc_index = 1
@@ -451,10 +453,9 @@ class Connector(GridLayout):
                     else:
                         proc_task_intervals[proc].append((last_available_time, package[2]))
                         last_available_time += package[2]
-
+                    interval_colors[proc].append(vacant_proc_index)
                 if transfer_finish_time < last_available_time:
                     transfer_finish_time = last_available_time
-
 
             if vacant_proc_finish_time >= transfer_finish_time:
                 proc_task_intervals[vacant_proc_index].append((vacant_proc_finish_time,self.app_graph.matrix[task[0]][task[0]]))
@@ -462,9 +463,11 @@ class Connector(GridLayout):
                 proc_task_intervals[vacant_proc_index].append(
                     (transfer_finish_time, self.app_graph.matrix[task[0]][task[0]]))
             proc_task_assignments[vacant_proc_index].append(task[0])
+            interval_colors[vacant_proc_index].append(vacant_proc_index)
         print('proc interv',proc_task_intervals)
         print('proc assign',proc_task_assignments)
-        return draw_gantt_plot(proc_task_intervals)
+        print('colors', interval_colors)
+        return draw_gantt_plot(proc_task_intervals, interval_colors)
 
     def show_main_menu_screen(self, instance):
         designer_app.screen_manager.current = "MainMenu"
