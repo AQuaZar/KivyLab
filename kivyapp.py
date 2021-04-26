@@ -1,5 +1,6 @@
 import kivy
 from kivy.app import App
+from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.textinput import TextInput
@@ -14,6 +15,7 @@ from kivy.lang import Builder
 from node import Node
 import numpy as np
 import collections
+from gantt import draw_gantt_plot
 kivy.require('2.0.0')
 
 
@@ -22,10 +24,10 @@ class NodeLabel(Label):
         super().__init__(**kwargs)
         self.index = number
 
-
     def get_pos(self):
         Clock.schedule_once(lambda *args: self.parent.draw_lines())
         print(self.center_x, self.center_y)
+
 
 class AppGraph(GridLayout):
     def __init__(self, **kwargs):
@@ -67,7 +69,6 @@ class AppGraph(GridLayout):
         self.add_widget(self.inputs_num_widget)
         self.add_widget(self.submit_amount)
         self.add_widget(Label(size_hint_y=0.1))
-
 
     def show_main_menu_screen(self, instance):
         designer_app.screen_manager.current = "MainMenu"
@@ -195,6 +196,7 @@ class AppGraph(GridLayout):
 
         self.is_drawn = True
         self.add_widget(self.matrix_button)
+        self.add_widget(self.menu_button)
         Clock.schedule_once(lambda *args: list(filter(lambda x: isinstance(x, NodeLabel),self.children))[0].get_pos())
 
     def draw_lines(self, *args):
@@ -203,6 +205,12 @@ class AppGraph(GridLayout):
             
             for node_1 in self.children:
                 if isinstance(node_1, NodeLabel):
+                    with self.canvas:
+                        Label(text=str(node_1.index), x=node_1.center_x, y=node_1.center_y)
+                        Color(0.5, 0.5, 0.5, 0.9)
+                        Ellipse(pos=((node_1.center_x - min(self.size) * 0.1 / 2),
+                                     (node_1.center_y - min(self.size) * 0.1 / 2)),
+                                size=(min(self.size) * 0.1, min(self.size) * 0.1))
                     for node_2 in self.children:
                         if isinstance(node_2, NodeLabel):
                             with self.canvas:
@@ -268,17 +276,17 @@ class AppGraph(GridLayout):
                                                          node_2.center_y],
                                                  width=6)
                                     Label(text=str(node_2.index), x=node_2.center_x, y=node_2.center_y)
-                                    Label(text=str(node_1.index), x=node_1.center_x, y=node_1.center_y)
                                     Color(0.5, 0.5, 0.5, 0.9)
-                                    Ellipse(pos=((node_1.center_x-min(self.size)*0.1/2),
-                                                 (node_1.center_y-min(self.size)*0.1/2)),
-                                            size=(min(self.size)*0.1, min(self.size)*0.1))
                                     Ellipse(pos=((node_2.center_x-min(self.size)*0.1/2),
                                                  (node_2.center_y-min(self.size)*0.1/2)),
                                             size=(min(self.size)*0.1, min(self.size)*0.1))
-                                    Rectangle(pos=(self.matrix_button.x,self.matrix_button.y), size=(40,40), text="Sample")
-
-
+            with self.canvas:
+                Color(0.5, 0.5, 0.5, 0.9)
+                Rectangle(pos=(self.matrix_button.x,self.matrix_button.y), size=(100,40))
+                Label(pos=(self.matrix_button.x,self.matrix_button.y),text="Show Matrix")
+                Color(0.5, 0.5, 0.5, 0.9)
+                Rectangle(pos=(self.menu_button.x, self.menu_button.y), size=(100, 40))
+                Label(pos=(self.menu_button.x, self.menu_button.y), text="Back to Menu")
 
     def find_depth(self, node, bad_boys=None, is_first=False):
         if isinstance(node, int):
@@ -360,6 +368,135 @@ class SystGraph(AppGraph):
                                  size_hint=(None, None), size=(500, 200))
         self.check_popup.bind(on_dismiss=self.draw_app_graph_menu)
 
+class Connector(GridLayout):
+    def __init__(self, app_graph, syst_graph, **kwargs):
+        super().__init__(**kwargs)
+        self.cols = 2
+        self.spacing = (10, 10)
+        self.padding = [10, 10, 10, 10]
+        self.menu_button = Button(text="Return to Menu", size_hint=(1, .1))
+        self.menu_button.bind(on_press=self.show_main_menu_screen)
+        self.start_button = Button(text="Start", size_hint=(1, .1))
+        self.start_button.bind(on_press=self.show_assigned_tasks)
+
+        #self.add_widget(Label())
+        #self.add_widget(Label())
+        self.add_widget(self.menu_button)
+        self.add_widget(self.start_button)
+        #self.add_widget(Label())
+        #self.add_widget(Label())
+        self.app_graph = app_graph
+        self.syst_graph = syst_graph
+
+    def show_assigned_tasks(self, instance):
+        queue3_plot = self.assign_tasks(self.app_graph.queue_3)
+        flat_queue_7 = []
+        for i in self.app_graph.queue_7:
+            for j in i:
+                flat_queue_7.append(j)
+        queue7_plot = self.assign_tasks(flat_queue_7)
+        self.add_widget(Image(source=queue3_plot))
+        self.add_widget(Image(source=queue7_plot))
+        self.add_widget(Label(text="Queue 3", size_hint=(1, .1)))
+        self.add_widget(Label(text="Queue 7", size_hint=(1, .1)))
+        #print(queue3_plot, queue7_plot)
+
+    def assign_tasks(self, queue):
+        #print("SP",self.find_shortest_path(1,5))
+        proc_amount = self.syst_graph.inputs_num
+        proc_task_intervals = dict()
+        proc_task_assignments = dict()
+        for i in range(1, proc_amount + 1):
+            # All processors start on 0,0 position, with no tasks assigned
+            proc_task_intervals[i] = [(0, 0)]
+            proc_task_assignments[i] = []
+
+        for task in queue:
+            vacant_proc_index = 1
+            vacant_proc_finish_time = 0
+            transfer_data = []
+            #parents = []
+            for i in range(1, self.app_graph.inputs_num + 1):
+                # For every task we check if it is dependant from any task
+                if self.app_graph.matrix[i][task[0]] and i!=task[0]:
+                    #parents.append(i)
+                    # For every found parent-task we check to which processor it is assigned
+                    for proc_index, assigned_tasks in proc_task_assignments.items():
+                        if i in assigned_tasks:
+                            # Add such data: Processor index holding task, index of task and time of task transfer
+                            transfer_data.append((proc_index, i, self.app_graph.matrix[i][task[0]]))
+
+
+            for i in range(1, proc_amount + 1):
+                # From all available processors search for most vacant
+                if proc_task_intervals[i][-1][0] + proc_task_intervals[i][-1][1] \
+                        <= proc_task_intervals[vacant_proc_index][-1][0] + proc_task_intervals[vacant_proc_index][-1][1]:
+                    vacant_proc_index = i
+                    # vacant_proc_finish_time shows when processor will finish last task
+                    vacant_proc_finish_time = proc_task_intervals[i][-1][0] + proc_task_intervals[i][-1][1]
+
+            transfer_finish_time = 0
+            for package in transfer_data:
+                # Perform data transferring if needed
+                print(f"Send {package[1]} task from {package[0]} to {vacant_proc_index}, edge weight - {package[2]}")
+                transfer_path = list(reversed(self.find_shortest_path(package[0], vacant_proc_index)))
+                print("Shortest Path: ", transfer_path)
+                last_available_time = 0
+                # we add transfer time for all processors except last one
+                for proc in transfer_path[:-1]:
+                    proc_finish_time = proc_task_intervals[proc][-1][0] + proc_task_intervals[proc][-1][1]
+                    if proc_finish_time > last_available_time:
+                        proc_task_intervals[proc].append((proc_finish_time, package[2]))
+                        last_available_time = proc_finish_time + package[2]
+                    else:
+                        proc_task_intervals[proc].append((last_available_time, package[2]))
+                        last_available_time += package[2]
+
+                if transfer_finish_time < last_available_time:
+                    transfer_finish_time = last_available_time
+
+
+            if vacant_proc_finish_time >= transfer_finish_time:
+                proc_task_intervals[vacant_proc_index].append((vacant_proc_finish_time,self.app_graph.matrix[task[0]][task[0]]))
+            else:
+                proc_task_intervals[vacant_proc_index].append(
+                    (transfer_finish_time, self.app_graph.matrix[task[0]][task[0]]))
+            proc_task_assignments[vacant_proc_index].append(task[0])
+        print('proc interv',proc_task_intervals)
+        print('proc assign',proc_task_assignments)
+        return draw_gantt_plot(proc_task_intervals)
+
+    def show_main_menu_screen(self, instance):
+        designer_app.screen_manager.current = "MainMenu"
+
+    def find_shortest_path(self, node_index, target_index, visited=None):
+        if visited is None:
+            visited = []
+        #print(f"Start - {node_index}, visited - {visited}")
+        if node_index in visited:
+            return []
+        else:
+            visited.append(node_index)
+        if node_index == target_index:
+            return [target_index]
+        path = []
+        path_length = 99999
+        visited_temp = tuple(visited)
+        for i in range(1, self.syst_graph.inputs_num + 1):
+            visited = [x for x in visited_temp]
+            if self.syst_graph.matrix[node_index][i] and i != node_index:
+                #print(f"{node_index} -> {i}")
+                nested_path = self.find_shortest_path(i, target_index, visited)
+                #print("nes path ", nested_path)
+                if nested_path and nested_path[0]==target_index:
+                    nested_path.append(node_index)
+                    if len(nested_path) < path_length:
+                        path = nested_path
+                        path_length = len(nested_path)
+        return path
+
+
+
 
 class MainMenu(GridLayout):
     def __init__(self, **kwargs):
@@ -376,6 +513,10 @@ class MainMenu(GridLayout):
         self.add_widget(self.syst_graph_button)
         self.syst_graph_button.bind(on_press=self.show_syst_graph_screen)
 
+        self.connector_button = Button(text="Assign Tasks to Processors")
+        self.add_widget(self.connector_button)
+        self.connector_button.bind(on_press=self.show_connector_screen)
+
         self.exit_button = Button(text="Exit")
         self.add_widget(self.exit_button)
         self.exit_button.bind(on_press=self.exit)
@@ -385,6 +526,9 @@ class MainMenu(GridLayout):
 
     def show_syst_graph_screen(self, instance):
         designer_app.screen_manager.current = "SystGraph"
+
+    def show_connector_screen(self, instance):
+        designer_app.screen_manager.current = "Connector"
 
     def exit(self, instance):
         designer_app.get_running_app().stop()
@@ -409,6 +553,11 @@ class DesignerApp(App):
         self.syst_graph = SystGraph()
         screen = Screen(name="SystGraph")
         screen.add_widget(self.syst_graph)
+        self.screen_manager.add_widget(screen)
+
+        self.connector = Connector(app_graph=self.app_graph, syst_graph=self.syst_graph)
+        screen = Screen(name="Connector")
+        screen.add_widget(self.connector)
         self.screen_manager.add_widget(screen)
 
         return self.screen_manager
